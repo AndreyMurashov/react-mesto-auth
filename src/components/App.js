@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from "react";
-import Footer from "./Footer";
-import Header from "./Header";
 import Main from "./Main";
 import ImagePopup from "./ImagePopup";
 import api from "../utils/api";
@@ -8,9 +6,14 @@ import CurrentUserContext from "../contexts/CurrentUserContext";
 import EditProfilePopup from "./EditProfilePopup";
 import EditAvatarPopup from "./EditAvatarPopup";
 import AddPlacePopup from "./AddPlacePopup";
-import { Route, Routes } from "react-router-dom";
+import { Route, Switch, useHistory } from "react-router-dom";
 import Register from "./Register";
 import Login from "./Login";
+import ProtectedRoute from "./ProtectedRoute";
+import * as auth from "../utils/auth";
+import InfoTooltip from "./InfoTooltip";
+import Success from "../images/success.png";
+import Fail from "../images/fail.png";
 
 const App = () => {
   const [currentUser, setCurrentUser] = useState({});
@@ -19,6 +22,11 @@ const App = () => {
   const [isAddPlacePopupOpen, setIsAddPlacePopupOpen] = useState(false);
   const [isEditAvatarPopupOpen, setIsEditAvatarPopupOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState({});
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [uEmail, setUEmail] = useState("");
+  const [isSuccessPopupOpen, setIsSuccessPopupOpen] = useState(false);
+  const [isFailPopupOpen, setIsFailPopupOpen] = useState(false);
+  const history = useHistory();
 
   useEffect(() => {
     Promise.all([api.getUserInfo(), api.getInitialCards()])
@@ -125,49 +133,111 @@ const App = () => {
     setIsAddPlacePopupOpen(false);
     setIsEditAvatarPopupOpen(false);
     setSelectedCard({});
+    setIsSuccessPopupOpen(false);
+    setIsFailPopupOpen(false);
   };
+
+  const handleRegister = (email, password) => {
+    console.log(email, password);
+    auth
+      .register(email, password)
+      .then((res) => {
+        console.log("Вы успешно зарегистрировались!");
+        setUEmail(res.email);
+        setIsSuccessPopupOpen(true);
+        setTimeout(() => setIsSuccessPopupOpen(false), 3000);
+        history.push("/sign-in");
+      })
+      .catch((err) => {
+        if (err.status === "400") {
+          console.log("Неверно заполнено одно из полей");
+        }
+
+        setIsFailPopupOpen(true);
+        setTimeout(() => setIsFailPopupOpen(false), 10000);
+      });
+  };
+
+  const handleLogin = (email, password) => {
+    auth
+      .login(email, password)
+      .then((res) => {
+        if (res.token) {
+          localStorage.setItem("token", res.token);
+          setLoggedIn(true);
+          setUEmail(email);
+          checkToken();
+          history.push("/");
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+        if (err.status === "400") {
+          console.log("Неверно заполнено одно из полей");
+        } else if (err.status === "401") {
+          console.log("Пользователь с таким email не найден");
+        }
+
+        setIsFailPopupOpen(true);
+        setTimeout(() => setIsFailPopupOpen(false), 10000);
+      });
+  };
+
+  const checkToken = () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      auth
+        .getContent(token)
+        .then((res) => {
+          if (res) {
+            setUEmail(res.data.email);
+            setLoggedIn(true);
+            history.push("/");
+          }
+        })
+        .catch((err) => console.log(err));
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setUEmail("");
+    setLoggedIn(false);
+    history.push("/sign-in");
+  };
+
+  useEffect(() => {
+    checkToken();
+  }, []);
 
   return (
     <CurrentUserContext.Provider value={currentUser}>
       <div className="body">
-        <Routes>
-          <Route
+        <Switch>
+          <ProtectedRoute
+            exact
             path="/"
-            element={
-              <>
-                <Header authText="Войти" linkTo="/sign-up" />
-                <Main
-                  onEditProfile={handleEditProfileClick}
-                  onAddPlace={handleAddPlaceClick}
-                  onEditAvatar={handleEditAvatarClick}
-                  onCardClick={handleCardClick}
-                  cards={cards}
-                  onCardLike={handleCardLike}
-                  onCardDelete={handleCardDelete}
-                />
-                <Footer />
-              </>
-            }
+            loggedIn={loggedIn}
+            uEmail={uEmail}
+            component={Main}
+            onEditProfile={handleEditProfileClick}
+            onAddPlace={handleAddPlaceClick}
+            onEditAvatar={handleEditAvatarClick}
+            onCardClick={handleCardClick}
+            cards={cards}
+            onCardLike={handleCardLike}
+            onCardDelete={handleCardDelete}
+            handleLogout={handleLogout}
           />
-          <Route
-            path="/sign-up"
-            element={
-              <>
-                <Header authText="Регистрация" linkTo="/sign-in" />
-                <Login />
-              </>
-            }
-          />
-          <Route
-            path="/sign-in"
-            element={
-              <>
-                <Header authText="Войти" linkTo="/sign-up" />
-                <Register />
-              </>
-            }
-          />
-        </Routes>
+
+          <Route path="/sign-up">
+            <Register handleRegister={handleRegister} />
+          </Route>
+
+          <Route path="/sign-in">
+            <Login handleLogin={handleLogin} checkToken={checkToken} />
+          </Route>
+        </Switch>
 
         <EditProfilePopup
           isOpen={isEditProfilePopupOpen}
@@ -187,6 +257,21 @@ const App = () => {
           isOpen={isAddPlacePopupOpen}
           onClose={closeAllPopups}
           onAddPlace={handleAddPlaceSubmit}
+        />
+
+        <InfoTooltip
+          name="success"
+          title="Вы успешно зарегистрировались!"
+          src={Success}
+          isOpen={isSuccessPopupOpen}
+          onClose={closeAllPopups}
+        />
+        <InfoTooltip
+          name="fail"
+          title="Что-то пошло не так! Попробуйте ещё раз."
+          src={Fail}
+          isOpen={isFailPopupOpen}
+          onClose={closeAllPopups}
         />
       </div>
     </CurrentUserContext.Provider>
