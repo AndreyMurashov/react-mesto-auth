@@ -47,6 +47,7 @@ const Login = (props) => {
               className="components__input"
               placeholder="Пароль"
               name="password"
+              type="password"
               value={data.password}
               onChange={handleChange}
             />

@@ -45,6 +45,7 @@ export const Register = (props) => {
             <input
               className="components__input"
               name="password"
+              type="password"
               placeholder="Пароль"
               value={data.password}
               onChange={handleChange}

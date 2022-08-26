@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Main from "./Main";
 import ImagePopup from "./ImagePopup";
 import api from "../utils/api";
@@ -24,31 +24,23 @@ const App = () => {
   const [selectedCard, setSelectedCard] = useState({});
   const [loggedIn, setLoggedIn] = useState(false);
   const [uEmail, setUEmail] = useState("");
-  const [isSuccessPopupOpen, setIsSuccessPopupOpen] = useState(false);
-  const [isFailPopupOpen, setIsFailPopupOpen] = useState(false);
+  const [regPopupOpen, setRegPopupOpen] = useState(false);
   const history = useHistory();
+  const [popupImage, setPopupImage] = useState("");
+  const [popupTitle, setPopupTitle] = useState("");
 
   useEffect(() => {
-    Promise.all([api.getUserInfo(), api.getInitialCards()])
-      .then(([userData, initialCards]) => {
-        setCurrentUser(userData);
-        setCards(initialCards);
-      })
-      .catch((err) => {
-        console.log(`Ошибка: ${err}`);
-      });
-  }, []);
-
-  useEffect(() => {
-    api
-      .getInitialCards()
-      .then((data) => {
-        setCards(data);
-      })
-      .catch((err) => {
-        console.log(`Ошибка: ${err}`);
-      });
-  }, []);
+    if (loggedIn) {
+      Promise.all([api.getUserInfo(), api.getInitialCards()])
+        .then(([userData, initialCards]) => {
+          setCurrentUser(userData);
+          setCards(initialCards);
+        })
+        .catch((err) => {
+          console.log(`Ошибка: ${err}`);
+        });
+    }
+  }, [loggedIn]);
 
   const handleEditProfileClick = () => {
     setIsEditProfilePopupOpen(!isEditProfilePopupOpen);
@@ -133,8 +125,7 @@ const App = () => {
     setIsAddPlacePopupOpen(false);
     setIsEditAvatarPopupOpen(false);
     setSelectedCard({});
-    setIsSuccessPopupOpen(false);
-    setIsFailPopupOpen(false);
+    setRegPopupOpen(false);
   };
 
   const handleRegister = (email, password) => {
@@ -144,17 +135,20 @@ const App = () => {
       .then((res) => {
         console.log("Вы успешно зарегистрировались!");
         setUEmail(res.email);
-        setIsSuccessPopupOpen(true);
-        setTimeout(() => setIsSuccessPopupOpen(false), 3000);
+        setPopupImage(Success);
+        setPopupTitle("Вы успешно зарегистрировались!");
+        setRegPopupOpen(true);
+        setTimeout(() => setRegPopupOpen(false), 3000);
         history.push("/sign-in");
       })
       .catch((err) => {
         if (err.status === "400") {
           console.log("Неверно заполнено одно из полей");
         }
-
-        setIsFailPopupOpen(true);
-        setTimeout(() => setIsFailPopupOpen(false), 10000);
+        setPopupImage(Fail);
+        setPopupTitle("Что-то пошло не так! Попробуйте ещё раз.");
+        setRegPopupOpen(true);
+        setTimeout(() => setRegPopupOpen(false), 10000);
       });
   };
 
@@ -177,9 +171,10 @@ const App = () => {
         } else if (err.status === "401") {
           console.log("Пользователь с таким email не найден");
         }
-
-        setIsFailPopupOpen(true);
-        setTimeout(() => setIsFailPopupOpen(false), 10000);
+        setPopupImage(Fail);
+        setPopupTitle("Что-то пошло не так! Попробуйте ещё раз.");
+        setRegPopupOpen(true);
+        setTimeout(() => setRegPopupOpen(false), 10000);
       });
   };
 
@@ -261,16 +256,9 @@ const App = () => {
 
         <InfoTooltip
           name="success"
-          title="Вы успешно зарегистрировались!"
-          src={Success}
-          isOpen={isSuccessPopupOpen}
-          onClose={closeAllPopups}
-        />
-        <InfoTooltip
-          name="fail"
-          title="Что-то пошло не так! Попробуйте ещё раз."
-          src={Fail}
-          isOpen={isFailPopupOpen}
+          title={popupTitle}
+          src={popupImage}
+          isOpen={regPopupOpen}
           onClose={closeAllPopups}
         />
       </div>
